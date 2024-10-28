@@ -1,0 +1,1 @@
+PYTHONPATH="$(pwd)/src:$PYTHONPATH" FLASK_APP="src.app:create_app" FLASK_ENV=development flask run

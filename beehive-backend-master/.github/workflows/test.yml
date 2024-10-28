@@ -1,0 +1,74 @@
+name: test
+
+on:
+  pull_request:
+    branches:
+      - "master"
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+
+    strategy:
+      matrix:
+        python-version: [ "3.12" ]
+
+    services:
+      test_mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 1
+        ports:
+          - 3306:3306
+      test_redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v2
+
+      - name: set up python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: cache pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.OS }}-pip-${{ hashFiles('requirements.txt', 'test_requirements.txt') }}
+          restore-keys:
+            ${{ runner.OS }}-pip-
+            ${{ runner.OS }}-
+
+      - name: install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r internal_requirements.txt
+          pip install -r test_requirements.txt
+
+      - name: setup config overrides
+        run: |
+          echo "SQLALCHEMY_DATABASE_URI = 'mysql://root@127.0.0.1/beehive'" > /tmp/config_migrate.py
+
+      - name: setup database
+        run: |
+          mysql -h 127.0.0.1 -u root -e "CREATE DATABASE beehive character set UTF8 collate utf8_bin; CREATE USER 'bee_backend_service' IDENTIFIED BY 'bee_backend_service'; GRANT SELECT, INSERT, UPDATE, DELETE ON beehive.* TO 'bee_backend_service';"
+
+      - name: set pythonpath
+        run: echo "PYTHONPATH=$(pwd)/src:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: upgrade database
+        env:
+          FLASK_APP: "src.app:create_app"
+          FLASK_ENV: "testing"
+          BACKEND_CONFIG_FILE: "/tmp/config_migrate.py"
+        run: flask db upgrade
+
+      - name: test
+        env:
+          BACKEND_CONFIG_FILE: "/tmp/config_test.py"
+        run: pytest --cov=src --durations=0 -rs tests

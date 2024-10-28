@@ -1,0 +1,19 @@
+global:
+  scrape_interval: 3s
+  external_labels:
+      monitor: 'beehive-backend'
+
+rule_files:
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: 'beehive-backend'
+    dns_sd_configs:
+      - names: ['beehive_backend']
+        port: 8080
+        type: A
+        refresh_interval: 5s
+    authorization:
+      credentials: ''

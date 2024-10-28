@@ -1,0 +1,102 @@
+version: '3'
+
+services:
+  beehive_mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    ports:
+      - 3306:3306
+
+  beehive_redis:
+    image: redis:6
+    ports:
+      - 6379:6379
+
+  beehive_backend:
+    build: .
+    depends_on:
+      - beehive_mysql
+      - beehive_redis
+      - promtail
+    ports:
+      - 8080:8080
+    volumes:
+      - /tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../beehive-bootstrap-python:/src/beehive-bootstrap-python
+      - ../bootstrap-react:/src/bootstrap-react
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:9081/loki/api/v1/push"
+
+  beehive_worker:
+    build: .
+    command: ["flask", "rq", "worker"]
+    depends_on:
+      - beehive_backend
+      - promtail
+    volumes:
+      - /tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../beehive-bootstrap-python:/src/beehive-bootstrap-python
+      - ../bootstrap-react:/src/bootstrap-react
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:9081/loki/api/v1/push"
+
+  beehive_scheduler:
+    build: .
+    command: ["flask", "rq", "scheduler", "-v"]
+    depends_on:
+      - beehive_backend
+      - promtail
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://127.0.0.1:9081/loki/api/v1/push"
+
+  beehive_router:
+    image: openresty/openresty:1.19.3.2-3-buster
+    depends_on:
+      - beehive_redis
+    ports:
+      - 8081:8080
+    volumes:
+      - ./ops/router/default.conf:/etc/nginx/conf.d/default.conf
+      - ./ops/router/error.html:/usr/local/openresty/nginx/html/error.html
+
+  prometheus:
+    image: prom/prometheus:v2.26.0
+    ports:
+      - 9090:9090
+    volumes:
+      - ./ops/prometheus/config.yml:/etc/prometheus/prometheus.yml
+
+  loki:
+    image: grafana/loki:2.3.0
+    ports:
+      - 3100:3100
+    volumes:
+      - ./ops/loki/local-config.yaml:/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.3.0
+    depends_on:
+      - loki
+    ports:
+      - 9081:9081
+    volumes:
+      - ./ops/promtail/config.yml:/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:7.5.5
+    ports:
+      - 3000:3000
+    volumes:
+      - ./ops/grafana/config.ini:/etc/grafana/grafana.ini
+      - ./ops/grafana/datasource.yaml:/etc/grafana/provisioning/datasources/default.yaml
+      - ./ops/grafana/dashboard.yaml:/etc/grafana/provisioning/dashboards/default.yaml
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards

@@ -1,0 +1,95 @@
+name: deploy
+
+on:
+  push:
+    tags:
+      - 'prod-v*'
+      - 'test-v*'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ALLOWED_USERS: florpor eliyaba Leonardo-coder
+
+jobs:
+  deploy:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        node-version: [ 16.x ]
+
+    steps:
+      - name: check actor allowed
+        run: |
+          [[ $ALLOWED_USERS =~ (^|[[:space:]])${{ github.triggering_actor }}($|[[:space:]]) ]]
+
+      - uses: actions/checkout@v3
+
+      - name: set environment
+        run: |
+          export ENV_NAME=$(echo ${{ github.ref_name }} | cut -f 1 -d '-')
+          echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
+          export VERSION_NAME=$(echo ${{ github.ref_name }} | sed -e "s/^$ENV_NAME-v//")
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          export IAM_ROLE=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.role)
+          export AWS_REGION=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.region)
+          export S3_BUCKET=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.bucket)
+          export CF_DISTRIBUTION=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.distribution)
+          export BASE_BACKEND_URL=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.base_url)
+          export GTM_ID=$(echo '${{ secrets.ENV_CONFIG_MAP }}' | jq -r .$ENV_NAME.gtm_id)
+          echo "::add-mask::$IAM_ROLE"
+          echo "::add-mask::$AWS_REGION"
+          echo "::add-mask::$S3_BUCKET"
+          echo "::add-mask::$CF_DISTRIBUTION"
+          echo "::add-mask::$BASE_BACKEND_URL"
+          echo "::add-mask::$GTM_ID"
+          echo "IAM_ROLE=$IAM_ROLE" >> $GITHUB_ENV
+          echo "AWS_REGION=$AWS_REGION" >> $GITHUB_ENV
+          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_ENV
+          echo "CF_DISTRIBUTION=$CF_DISTRIBUTION" >> $GITHUB_ENV
+          echo "BASE_BACKEND_URL=$BASE_BACKEND_URL" >> $GITHUB_ENV
+          echo "GTM_ID=$GTM_ID" >> $GITHUB_ENV
+
+      - name: use node v${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: cache node modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys:
+            ${{ runner.OS }}-build-${{ env.cache-name }}
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - name: install dependencies
+        run: npm install
+
+      - name: build
+        run: npm run build
+        env:
+          REACT_APP_BACKEND_URL: "${{ env.BASE_BACKEND_URL }}"
+          REACT_APP_GTM_ID: "${{ env.GTM_ID }}"
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: copy assets
+        run: aws s3 sync --region $AWS_REGION build s3://$S3_BUCKET/v$VERSION_NAME/
+
+      - name: replace live version
+        run: |
+          aws s3 rm --region $AWS_REGION --recursive s3://$S3_BUCKET/latest
+          aws s3 cp --region $AWS_REGION --recursive s3://$S3_BUCKET/v$VERSION_NAME s3://$S3_BUCKET/latest
+
+      - name: create invalidation
+        run: aws cloudfront create-invalidation --region $AWS_REGION --distribution-id $CF_DISTRIBUTION --paths "/*"

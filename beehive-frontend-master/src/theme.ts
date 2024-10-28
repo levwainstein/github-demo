@@ -1,0 +1,137 @@
+import { createMuiTheme } from '@material-ui/core/styles';
+
+const theme = createMuiTheme({
+    palette: {
+        primary: { 
+            light: '#464B60',
+            main: '#2C2F3E',
+            dark: '#1E202A'
+        },
+        secondary: {
+            main: '#E6BB42'
+        },
+        background: {
+            default: '#111218'
+        },
+        text: {
+            primary: '#FFFFFF',
+            secondary: '#000000',
+            hint: '#A7A8AC'
+        }
+    },
+    typography: {
+        fontFamily: [
+            'Inter',
+            '-apple-system',
+            'BlinkMacSystemFont',
+            'Segoe UI',
+            'Roboto',
+            'Oxygen',
+            'Ubuntu',
+            'Cantarell',
+            'Fira Sans',
+            'Droid Sans',
+            'Helvetica Neue',
+            'sans-serif'
+        ].join(',')
+    }
+});
+
+export default theme;
+
+export const colors = {
+    white: '#FFFFFF',
+    persianGreen: '#00B894',
+    azureRadiance: '#0984E3',
+    eggBlue: '#00CEC9',
+    darkGreen: '#009C99',
+    lightGray: '#CED4DA',
+    lightGrayContainer: '#1E202A',
+    hitGray: '#ADB5BD',
+    royalBlue: '#3E59D7',
+    codGray: '#1E1E1E',
+    alto: '#D0D0D0',
+    black: '#000000',
+    silver: '#C5C5C5',
+    red: '#D63031',
+    vistaWhite: '#FDFAFA',
+    orange: '#FF9F43',
+    errorRed: '#EA1F1F',
+    purple: '#6C5CE7',
+    pink: '#FFDDDC',
+    lightGrayishBlue: '#6c757d',
+    darkMintGreen: '#93FF781A',
+    darkMintBlue: '#9ACFED1A',
+    darkMintRed: '#FFA7A01A',
+    darkMintYellow: '#FFDCA81A',
+    brightGreen: '#5DCF41E5',
+    darkBlue: '#1E202A',
+    formBlue: '#1976d2',
+    black87: 'rgba(0, 0, 0, 0.87)',
+    white07: 'rgba(255, 255, 255, 0.07)',
+    white10: 'rgba(255, 255, 255, 0.1)',
+    white50: 'rgba(255, 255, 255, 0.5)',
+    white30: 'rgba(255, 255, 255, 0.3)',
+    white70: 'rgba(255, 255, 255, 0.7)',
+    white90: 'rgba(255, 255, 255, 0.9)',
+    darkGunmetal: '#1E202A',
+    lightningYellow: '#FABB18',
+    pirateGold: '#C48E02',
+    lightningYellowRgba: 'rgba(250, 187, 24, 0.8)',
+    lightningYellowRgba2: 'rgba(250, 187, 24, 0.2)',
+    lightningYellowRgba6: 'rgba(250, 187, 24, 0.6)',
+    pirateGoldRgba: 'rgba(196, 142, 2, 0.8)',
+    lightDimYellowRgba: 'rgba(250, 187, 24, 0.4)',
+    darkGray: '#2E313E',
+    blackRock: '#292B36',
+    progressBarFill: '#CA940A',
+    progressBarTrack: '#F5DA92',
+    tuna: '#363842',
+    freshGreen: '#5DCF41',
+    bluishCayan: '#5AC7F9',
+    orangyRed: '#FF675B',
+    lightGreen: 'rgba(147, 255, 120, 0.1)',
+    lightBluishCayan: 'rgba(154, 207, 237, 0.1)',
+    lightOrangyRed: 'rgba(255, 167, 160, 0.1)',
+    darkBluebg: '#111218',
+    yellowText: 'linear-gradient(105.23deg, #FABB18 0%, #C48E02 100%)',
+    pirateGoldRgba6: 'rgba(196, 142, 2, 0.6)',
+    lightOrangeYellow: 'rgba(255, 220, 168, 0.1)',
+    yellow60: 'rgba(250, 187, 24, 0.6)',
+    yellowButton: '#E6BB42',
+    green: 'rgba(93, 207, 65, 0.9)',
+    goldenColor: '#b38611',
+    scrollBarColor: '#393B45',
+    chineseGold: '#C38E02',
+    switchOffColor: '#6C5555',
+    switchOnColor: '#3D6040',
+    switchOnText: '#0E8E22',
+    greenSwitchButton: '#ADFFA01A',
+    lightYellow: '#ffffffe5',
+    canary: '#ffffff99',
+    lightShadeOfGray: '#ffffff11',
+    mainGold: 'rgb(250, 187, 24)',
+    mainDarkGold: 'rgb(196, 142, 2)',
+    gold: 'rgba(250, 187, 24, 0.6)',
+    darkGold: 'rgba(196, 142, 2, 0.6)',
+    goldenYellow: '#D19908',
+    mattGold: '#EAAD12',
+    lightGrey: '#3E3D41',
+    novajoWhite10: 'rgba(255, 220, 168, 0.1)',
+    tealishBlue: 'rgb(30, 32, 42)',
+    cinder: 'rgb(17, 18, 24)',
+    sunsetOrange: 'rgb(255, 92, 80)',
+    orangeyYellow: 'rgb(250, 187, 24)',
+    orangeyYellow80: 'rgba(250, 187, 24, 0.8)',
+    freshGreen90: 'rgba(93, 207, 65, 0.9)',
+    lightSalmon10: 'rgba(255, 167, 160, 0.1)',
+    easterGreen10: 'rgba(147, 255, 120, 0.1)',
+    ebonyClay: 'rgb(41, 43, 54)',
+    errorRed2: '#FF5C50',
+    red25: '#FF5C5040',
+    yellowText2:
+        'linear-gradient(105.23deg, rgba(250, 187, 24, 0.6) 0%, rgba(196, 142, 2, 0.6) 100%)',
+    yellowOrange: 'rgba(255, 180, 0, 1)',
+    black2: '#1E202A',
+    dimGray: '#686868'
+};

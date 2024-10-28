@@ -1,0 +1,164 @@
+name: test
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '!*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        node-version: [ 16.x ]
+        python-version: [ "3.12" ]
+
+    services:
+      test_mysql:
+        image: mysql:8
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 1
+        ports:
+          - 3306:3306
+      test_redis:
+        image: redis:6
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: beehive-frontend
+
+      - name: use node v${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: cache node modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.OS }}-build-${{ hashFiles('**/package-lock.json') }}
+          restore-keys:
+            ${{ runner.OS }}-build-${{ env.cache-name }}
+            ${{ runner.OS }}-build-
+            ${{ runner.OS }}-
+
+      - name: install dependencies
+        working-directory: beehive-frontend
+        run: npm install
+
+      - name: lint
+        working-directory: beehive-frontend
+        run: npm run lint
+
+      - name: test
+        working-directory: beehive-frontend
+        run: npm run test -- --coverage
+
+      - name: build
+        working-directory: beehive-frontend
+        env:
+          REACT_APP_BACKEND_URL: "http://127.0.0.1:8080"
+        run: npm run build
+
+      - name: checkout backend repo
+        uses: actions/checkout@v2
+        with:
+          repository: "beehive-software/beehive-backend"
+          ref: master
+          path: beehive-backend
+          token: ${{ secrets.CI_TOKEN }}
+
+      - name: checkout backend repo matching branch if it exists
+        working-directory: beehive-backend
+        run: |
+          git fetch
+          git branch -a | while IFS= read -r line; do
+            if [[ $line =~ .*remotes/origin/$GITHUB_HEAD_REF$ ]]; then
+              git checkout $GITHUB_HEAD_REF
+              echo "Checked out beehive-backend branch $GITHUB_HEAD_REF"
+            fi
+          done
+
+      - name: set up python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: cache pip
+        uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.OS }}-pip-${{ hashFiles('beehive-backend/requirements.txt', 'beehive-backend/test_requirements.txt') }}
+          restore-keys:
+            ${{ runner.OS }}-pip-
+            ${{ runner.OS }}-
+
+      - name: install dependencies
+        working-directory: beehive-backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r internal_requirements.txt
+          pip install -r test_requirements.txt
+          pip install gunicorn==21.2.0
+
+      - name: setup config overrides
+        working-directory: beehive-backend
+        run: |
+          echo "SQLALCHEMY_DATABASE_URI = 'mysql://root@127.0.0.1/beehive_test'" > /tmp/config_migrate.py
+          echo "SQLALCHEMY_DATABASE_URI = 'mysql://bee_backend_service:bee_backend_service@127.0.0.1/beehive_test'" > /tmp/config_test.py
+
+      - name: setup database
+        run: |
+          mysql -h 127.0.0.1 -u root -e "CREATE DATABASE beehive_test character set UTF8 collate utf8_bin; CREATE USER 'bee_backend_service' IDENTIFIED BY 'bee_backend_service'; GRANT SELECT, INSERT, UPDATE, DELETE ON beehive_test.* TO 'bee_backend_service';"
+
+      - name: set pythonpath
+        working-directory: beehive-backend
+        run: echo "PYTHONPATH=$(pwd)/src:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: upgrade database
+        working-directory: beehive-backend
+        env:
+          FLASK_APP: "src.app:create_app"
+          FLASK_ENV: "testing"
+          BACKEND_CONFIG_FILE: "/tmp/config_migrate.py"
+        run: flask db upgrade
+
+      - name: run server
+        working-directory: beehive-backend
+        env:
+          FLASK_ENV: "testing"
+          BACKEND_CONFIG_FILE: "/tmp/config_test.py"
+          SCRIPT_NAME: "/backend"
+        run: |
+          gunicorn --bind 127.0.0.1:8080 --workers=1 "src.app:create_app()" &
+          sleep 3
+
+      - name: serve frontend
+        working-directory: beehive-frontend
+        run: |
+          npm run serve &
+          sleep 3
+
+      - name: test e2e
+        working-directory: beehive-frontend
+        run: npm run test-e2e
+
+      - name: upload cypress screenshots and videos
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+            name: cypress-snapshots-videos
+            path: |
+              beehive-frontend/cypress/screenshots
+              beehive-frontend/cypress/videos
+            retention-days: 1
